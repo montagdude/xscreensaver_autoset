@@ -1,0 +1,84 @@
+#!/usr/bin/env python
+
+from sys import exit
+from time import sleep
+from subprocess import call
+
+cpu_file = "/proc/stat"
+
+def read_current_cpu():
+  """ Reads CPU usage info from system file. Reference:
+      http://codereview.stackexchange.com/questions/62388/to-calculate-the-total-cpu-usage-as-a-percentage """
+
+  f = open(cpu_file)
+  line = f.readline()
+  f.close()
+
+  splitline = line.split()
+  usr = int(splitline[1])
+  nice = int(splitline[2])
+  sys = int(splitline[3])
+  idle = int(splitline[4])
+  iowait = int(splitline[5])
+ 
+  active = usr + nice + sys + iowait
+  total = active + idle
+
+  return active, total
+
+def cpu_load(prev_active, prev_total):
+  """ Computes average CPU load since the last time queried """
+
+  cur_active, cur_total = read_current_cpu()
+
+  active = cur_active - prev_active
+  total = cur_total - prev_total
+  active_perc = float(active) / float(total) * 100.
+
+  return active_perc, cur_active, cur_total
+
+if __name__ == "__main__":
+
+  interval = 5             # How frequently to check CPU load (sec)
+  ss_cpu_threshold = 3.0   # CPU load (%) to inhibit/activate screensaver
+  ss_count_activate = 6    # Number of consecutive cycles below threshold to
+                           #   activate screensaver
+  ss_count_inhibit = 3     # Number of consecutive cycles above threshold to
+                           #   inhibit screensaver
+
+  check = call(["xscreensaver_controller", "--powersave-on"])
+  if check != 0:
+    print("Unable to run xscreensaver_controller.")
+    exit(1)
+  ss_mode = "on"
+
+  cur_active = 0
+  cur_total = 0
+  count_idle = 0
+  count_active = 0
+  while 1:
+    sleep(interval) 
+
+    cpuperc, cur_active, cur_total = cpu_load(cur_active, cur_total)
+    if cpuperc < ss_cpu_threshold:
+      count_active = 0
+      if ss_mode == "off":
+        if count_idle < ss_count_activate: count_idle += 1
+        elif count_idle == ss_count_activate:
+          count_idle += 1
+          call(["xscreensaver_controller", "--powersave-on"])
+          ss_mode = "on" 
+          call(["notify-send", "-t", "5000", "Screensaver activated",
+                "CPU load below threshold for specified time."])
+        print("CPU load: {:.1f}%, Idle count: {:d}".format(cpuperc, count_idle))
+    else:
+      count_idle = 0
+      if ss_mode == "on":
+        if count_active < ss_count_inhibit: count_active += 1
+        elif count_active == ss_count_inhibit:
+          count_active += 1
+          call(["xscreensaver_controller", "--powersave-off"])
+          ss_mode = "off" 
+          call(["notify-send", "-t", "5000", "Screensaver inhibited",
+                "CPU load above threshold for specified time."])
+        print("CPU load: {:.1f}%, Active count: {:d}".format(cpuperc, count_active))

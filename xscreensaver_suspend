@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Suspends laptop 2 minutes after screensaver kicks in (as long as the
+# screensaver is still running at that point).
+# Template from arch linux forums: 
+# https://bbs.archlinux.org/viewtopic.php?id=147773
+
+PAUSE=2m
+
+function process ()
+{
+  while read INPUT
+  do
+    case "$INPUT" in
+      BLANK*)
+        # Wait PAUSE and check to make sure it is blanked
+        sleep $PAUSE
+        local ISBLANKED=$(xscreensaver-command -time | grep ' blanked')
+        if [ "$ISBLANKED" != "" ]; then
+          user_suspend
+        fi
+        ;;
+    esac
+  done
+}
+
+xscreensaver-command -watch | process

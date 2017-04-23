@@ -1,0 +1,24 @@
+#!/bin/bash
+
+function print_usage()
+{
+  echo "Usage: xscreensaver_controller OPTION"
+  echo "Options:"
+  echo "  --powersave-off: Deactivate screensaver and dpms power management"
+  echo "  --powersave-on: Activate screensaver and dpms power management"
+}
+
+MODE=$1
+if [ $# -ne 1 ]; then
+  print_usage
+  exit 1
+elif [ "$MODE" == "--powersave-off" ]; then
+  sed -i 's/mode:\t\trandom/mode:\t\toff/' ~/.xscreensaver
+  sed -i 's/dpmsEnabled:\tTrue/dpmsEnabled:\tFalse/' ~/.xscreensaver
+elif [ "$MODE" == "--powersave-on" ]; then
+  sed -i 's/mode:\t\toff/mode:\t\trandom/' ~/.xscreensaver
+  sed -i 's/dpmsEnabled:\tFalse/dpmsEnabled:\tTrue/' ~/.xscreensaver
+else
+  print_usage
+  exit 1
+fi
